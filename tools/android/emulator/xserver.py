@@ -71,8 +71,8 @@ class X11Server(object):
       self._Cleanup(self.x11_pid)
 
       self._x11_process = None
-      raise ProcessCrashedError('Xvfb crashed unexpectedly, exit code %s' %
-                                return_code)
+      raise ProcessCrashedError(
+          f'Xvfb crashed unexpectedly, exit code {return_code}')
     if (not self._x11_process
         or self._x11_process.poll() is not None
         or not hasattr(self._x11_process, 'display')):
@@ -81,7 +81,7 @@ class X11Server(object):
     s = None
     try:
       s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-      s.connect('/tmp/.X11-unix/X%s' % self.x11_pid)
+      s.connect(f'/tmp/.X11-unix/X{self.x11_pid}')
       return True
     except socket.error:
       return False
@@ -93,18 +93,17 @@ class X11Server(object):
     """Kills this server if started (else no-op). Returns process' exit code."""
     old_x_proc = self._x11_process
     self._x11_process = None
-    if old_x_proc:
-      old_pid = old_x_proc.pid
-      if old_x_proc.poll() is None:
-        old_x_proc.terminate()
-        if old_x_proc.poll() is None:
-          time.sleep(2)
-          if old_x_proc.poll() is None:
-            old_x_proc.kill()
-      self._Cleanup(old_pid)
-      return old_x_proc.wait()
-    else:
+    if not old_x_proc:
       return 0
+    old_pid = old_x_proc.pid
+    if old_x_proc.poll() is None:
+      old_x_proc.terminate()
+      if old_x_proc.poll() is None:
+        time.sleep(2)
+        if old_x_proc.poll() is None:
+          old_x_proc.kill()
+    self._Cleanup(old_pid)
+    return old_x_proc.wait()
 
   @property
   def display(self):
@@ -134,8 +133,12 @@ class X11Server(object):
         '-retro',
         '-nocursor',
         '-noreset',
-        '-nolisten', 'tcp',
-        '-screen', '0', '%sx%sx24' % (self.width, self.height)]
+        '-nolisten',
+        'tcp',
+        '-screen',
+        '0',
+        f'{self.width}x{self.height}x24',
+    ]
     def _ExecFn():
       # need a unique / discoverable display value.
       # Lets use the xserver pid.
@@ -143,7 +146,7 @@ class X11Server(object):
       # before exec(). Python's done all the heavy lifting for
       # us so all we need to do is slap our pid as the last arg
       # to xvfb and do the execve ourselves.
-      args.append(':%s' % os.getpid())
+      args.append(f':{os.getpid()}')
       os.execve(args[0], args, x11_env)
 
     preexec_fn = _ExecFn
@@ -158,19 +161,19 @@ class X11Server(object):
     except (ValueError, OSError) as e:
       logging.error('Failed to start process, %s', e)
       raise ProcessCrashedError('Xvfb failed to launch')
-    self._x11_process.display = ':%s' % self._x11_process.pid
+    self._x11_process.display = f':{self._x11_process.pid}'
 
   # Clean up leftover X server files in the tmp directory
   def _Cleanup(self, pid):
     # Try to remove the socket file if it exists
-    x11_tmp_file = '/tmp/.X11-unix/X%s' % pid
+    x11_tmp_file = f'/tmp/.X11-unix/X{pid}'
     try:
       os.remove(x11_tmp_file)
     except OSError:
       pass
 
     # Try to remove the /tmp/.X$DISPLAY-lock lockfile if it exists
-    lockfile = '/tmp/.X%s-lock' % pid
+    lockfile = f'/tmp/.X{pid}-lock'
     try:
       os.remove(lockfile)
     except OSError:
@@ -194,12 +197,12 @@ class External(object):
     env = env or os.environ
     self._display = env.get('DISPLAY')
     assert self._display, 'There\'s no external X server'
-    self._env = {}
-    self._env['DISPLAY'] = self._display
-    if 'XAUTHORITY' in env:
-      self._env['XAUTHORITY'] = env.get('XAUTHORITY')
-    else:
-      self._env['XAUTHORITY'] = '~/.Xauthority'
+    self._env = {
+        'DISPLAY':
+        self._display,
+        'XAUTHORITY':
+        env.get('XAUTHORITY') if 'XAUTHORITY' in env else '~/.Xauthority',
+    }
     if 'XDG_SESSION_COOKIE' in env:
       self._env['XDG_SESSION_COOKIE'] = env.get('XDG_SESSION_COOKIE')
 
@@ -247,5 +250,4 @@ def WaitUntilRunning(server, timeout_sec):
     server.Kill()
   except Exception as e:  # pylint: disable=broad-except
     logging.warn('Error killing server after start-up timeout: %s', e)
-  raise TimeoutError(
-      'Server did not start within %s seconds' % timeout_sec)
+  raise TimeoutError(f'Server did not start within {timeout_sec} seconds')

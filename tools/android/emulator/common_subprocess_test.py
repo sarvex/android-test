@@ -80,7 +80,7 @@ class CommonSubprocessTest(googletest.TestCase):
           timeout_seconds=30,
           retries=2)
     except common.SpawnError as unexpected:
-      self.fail('Should have successfully executed: %s' % unexpected)
+      self.fail(f'Should have successfully executed: {unexpected}')
     self._AssertTimersNotExecuted()
 
   def testTimeout_cancelOnError(self):

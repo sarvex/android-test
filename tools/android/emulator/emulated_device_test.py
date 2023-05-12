@@ -147,10 +147,9 @@ class EmulatedDeviceTest(mox.MoxTestBase):
   def testBiosDir_NoExplicitFiles(self):
     android_platform = fake_android_platform_util.BuildAndroidPlatform()
     bios_dir = android_platform.MakeBiosDir(tempfile.mkdtemp())
-    self.assertTrue(os.path.exists(bios_dir), 'pc-bios dir doesnt exist: %s' %
-                    bios_dir)
-    self.assertTrue(os.listdir(bios_dir), 'pc-bios dir is empty! %s' %
-                    bios_dir)
+    self.assertTrue(os.path.exists(bios_dir),
+                    f'pc-bios dir doesnt exist: {bios_dir}')
+    self.assertTrue(os.listdir(bios_dir), f'pc-bios dir is empty! {bios_dir}')
 
   def testBiosDir_ExplicitFiles(self):
     android_platform = fake_android_platform_util.BuildAndroidPlatform()
@@ -161,7 +160,8 @@ class EmulatedDeviceTest(mox.MoxTestBase):
 
     self.assertTrue(
         os.path.basename(temp.name) in bios_contents,
-        'bios dir missing: %s, has: %s' % (temp.name, bios_contents))
+        f'bios dir missing: {temp.name}, has: {bios_contents}',
+    )
 
   def testDetermineArchitecture_FromSourceProperties(self):
     random_properties = {'systemimage.abi': 'foobarbaz'}
@@ -269,10 +269,7 @@ class EmulatedDeviceTest(mox.MoxTestBase):
                                         'androidversion.apilevel': '10'})
     found = set()
     for prop in device._metadata_pb.avd_config_property:
-      if prop.name == 'hw.mainKeys':
-        found.add(prop.name)
-        self.assertEquals('no', prop.value)
-      elif prop.name == 'hw.keyboard.lid':
+      if prop.name in ['hw.mainKeys', 'hw.keyboard.lid']:
         found.add(prop.name)
         self.assertEquals('no', prop.value)
       elif prop.name == 'hw.keyboard':
@@ -422,7 +419,7 @@ class EmulatedDeviceTest(mox.MoxTestBase):
   def testFindProcsToKill(self):
     device = emulated_device.EmulatedDevice()
     procs_to_kill = device._FindProcsToKill(ANR_LOGS)
-    self.assertEquals(set(procs_to_kill), set(['2712', '2452']))
+    self.assertEquals(set(procs_to_kill), {'2712', '2452'})
 
   def testMapToSupportedDensity(self):
     device = emulated_device.EmulatedDevice()
@@ -561,10 +558,14 @@ class EmulatedDeviceTest(mox.MoxTestBase):
   def assertSideLoading(self, api_level, table_name, called_with,):
     api_level = int(api_level)
     if api_level > 16:
-      self.assertEquals([
-          'settings put %s install_non_market_apps 0' % table_name,
-          'pm',
-          'disable com.android.providers.settings'], called_with)
+      self.assertEquals(
+          [
+              f'settings put {table_name} install_non_market_apps 0',
+              'pm',
+              'disable com.android.providers.settings',
+          ],
+          called_with,
+      )
     elif api_level == 16:
       self.assertEquals([
           'content insert --uri content://settings/%s --bind '

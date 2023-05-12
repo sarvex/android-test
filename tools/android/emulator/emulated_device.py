@@ -145,8 +145,7 @@ def _InstallFailureType(output):
   Returns:
     Either the failure string or UNKNOWN.
   """
-  m = INSTALL_FAILURE_REGEXP.match(output)
-  if m:
+  if m := INSTALL_FAILURE_REGEXP.match(output):
     return m.groups()[0]
   return 'UNKNOWN'
 
@@ -290,12 +289,12 @@ class AndroidPlatform(object):
     if emulator_type == emulator_meta_data_pb2.EmulatorMetaDataPb.QEMU2:
       return self.emulator_wrapper_launcher
 
-    if 'x86' == arch_type:
+    if arch_type == 'x86':
       return self.emulator_x86
     elif arch_type.startswith('arm'):
       return self.emulator_arm
     else:
-      raise Exception('Unknown arch: %s' % arch_type)
+      raise Exception(f'Unknown arch: {arch_type}')
 
   def MakeBiosDir(self, tmp_dir):
     """Creates a temp directory to hold bios files."""
@@ -405,12 +404,7 @@ class EmulatedDevice(object):
 
   def _IsPipeTraversalRunning(self):
     if self._pipe_traversal_running is None:
-      if self._SnapshotPresent().value == 'True':
-        # snapshot restore - it must be started explicitly.
-        self._pipe_traversal_running = False
-      else:
-        # fresh boot - of course it's running.
-        self._pipe_traversal_running = True
+      self._pipe_traversal_running = self._SnapshotPresent().value != 'True'
     return self._pipe_traversal_running
 
   def PreverifyApks(self):
@@ -478,7 +472,7 @@ class EmulatedDevice(object):
     for name in possible_kernels:
       if os.path.isfile(os.path.join(system_image_dir, name)):
         return name
-    raise Exception('No kernel file found in %s' % system_image_dir)
+    raise Exception(f'No kernel file found in {system_image_dir}')
 
   def _KernelFile(self):
     return os.path.join(self._SessionImagesDir(), self._KernelFileName())
@@ -555,7 +549,7 @@ class EmulatedDevice(object):
     os.symlink(init_kernel, self._KernelFile())
 
     init_sys = os.path.abspath(system_image_path)
-    assert os.path.exists(init_sys), '%s: no system.img' % system_image_path
+    assert os.path.exists(init_sys), f'{system_image_path}: no system.img'
     if system_image_path.endswith('.img'):
       os.symlink(init_sys, self._InitSystemFile())
       if (self._metadata_pb.emulator_type ==
@@ -648,7 +642,7 @@ class EmulatedDevice(object):
 
     if vendor_img_path and not os.path.exists(self._VendorFile()):
       init_data = vendor_img_path
-      assert os.path.exists(init_data), '%s: no vendor.img' % vendor_img_path
+      assert os.path.exists(init_data), f'{vendor_img_path}: no vendor.img'
       if init_data.endswith('.img.tar.gz'):
         self._ExtractTarEntry(
             init_data, 'vendor.img', os.path.dirname(self._VendorFile()))
@@ -665,22 +659,23 @@ class EmulatedDevice(object):
         self._EncryptionKeyImageFile()):
 
       init_data = encryptionkey_img_path
-      assert os.path.exists(init_data), (
-          '%s: no encryptionkey.img' % encryptionkey_img_path)
+      assert os.path.exists(
+          init_data), f'{encryptionkey_img_path}: no encryptionkey.img'
       assert init_data.endswith('.img'), 'Not known format'
       shutil.copy(init_data, self._EncryptionKeyImageFile())
       os.chmod(self._EncryptionKeyImageFile(), stat.S_IRWXU)
 
     if advanced_features_ini and not os.path.exists(
         self._AdvancedFeaturesFile()):
-      assert os.path.exists(advanced_features_ini), (
-          'Advanced Features file %s does not exist' % advanced_features_ini)
+      assert os.path.exists(
+          advanced_features_ini
+      ), f'Advanced Features file {advanced_features_ini} does not exist'
       shutil.copy(advanced_features_ini, self._AdvancedFeaturesFile())
       os.chmod(self._AdvancedFeaturesFile(), stat.S_IRWXU)
 
     if data_image_path and not os.path.exists(self._UserdataQemuFile()):
       init_data = data_image_path
-      assert os.path.exists(init_data), '%s: no userdata.img' % data_image_path
+      assert os.path.exists(init_data), f'{data_image_path}: no userdata.img'
       if init_data.endswith('.img'):
         self._SparseCp(init_data, self._UserdataQemuFile())
       else:
@@ -717,8 +712,9 @@ class EmulatedDevice(object):
         logging.info('Making sdcard on the fly due to a nonstandard size')
         sdcard_args = [
             self.android_platform.mksdcard,
-            '%sM' % sdcard_size_mb,
-            self._SdcardFile()]
+            f'{sdcard_size_mb}M',
+            self._SdcardFile(),
+        ]
         timer.start(_SDCARD_CREATE)
         common.SpawnAndWaitWithRetry(sdcard_args)
         # 1AEF-1A1E is hard coded in AdbController.java
@@ -801,11 +797,11 @@ class EmulatedDevice(object):
     avd_dir = os.path.join(home_dir, '.android', 'avd')
     # Allowed chars are:
     # ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_.-
-    avd_name = 'mobile_ninjas.adb.%s' % self.emulator_adb_port
+    avd_name = f'mobile_ninjas.adb.{self.emulator_adb_port}'
     content_dir = os.path.join(avd_dir, avd_name)
     os.makedirs(content_dir)
 
-    root_config_file = os.path.join(avd_dir, '%s.ini' % avd_name)
+    root_config_file = os.path.join(avd_dir, f'{avd_name}.ini')
     with open(root_config_file, 'w+') as root_config:
       root_config.write('path=%s\n' % self._SessionImagesDir())
       root_config.write('target=android-%s\n' % self._metadata_pb.api_name)
@@ -907,7 +903,7 @@ class EmulatedDevice(object):
                    source_properties, default_value):
     default_properties = default_properties or {}
     source_properties = source_properties or {}
-    key = 'avd_config_ini.%s' % property_name
+    key = f'avd_config_ini.{property_name}'
     key = key.lower()
 
     return default_properties.get(key, source_properties.get(key,
@@ -918,28 +914,24 @@ class EmulatedDevice(object):
 
     if density == _DENSITY_TVDPI:
       return density
-    # The reference source code is here:
-    # https://android.googlesource.com/platform/external/qemu/+/emu-2.2-release/android/hw-lcd.c#18
-    # It finds the closest (either higher or lower) supported dpi for a given
-    # density.
-    for i in range(len(_BUCKET_DPI[:-1])):
-      if density < ((_BUCKET_DPI[i] + _BUCKET_DPI[i+1])/2):
-        return _BUCKET_DPI[i]
-    return _BUCKET_DPI[-1]
+    return next(
+        (_BUCKET_DPI[i] for i in range(len(_BUCKET_DPI[:-1]))
+         if density < ((_BUCKET_DPI[i] + _BUCKET_DPI[i + 1]) / 2)),
+        _BUCKET_DPI[-1],
+    )
 
   def _GetImagePath(self, image_dir, suffix, ignore_non_existent_file=False):
     """Generate image path from image_dir and suffix."""
     file_path = os.path.join(image_dir, suffix)
     if os.path.exists(file_path):
       return file_path
-    elif os.path.exists(file_path + '.tar.gz'):
-      return file_path + '.tar.gz'
+    elif os.path.exists(f'{file_path}.tar.gz'):
+      return f'{file_path}.tar.gz'
     else:
-      if ignore_non_existent_file:
-        logging.info('%s file does not exist', file_path)
-        return None
-      else:
-        raise Exception('%s not found in %s' % (suffix, os.listdir(image_dir)))
+      if not ignore_non_existent_file:
+        raise Exception(f'{suffix} not found in {os.listdir(image_dir)}')
+      logging.info('%s file does not exist', file_path)
+      return None
 
   def BuildImagesDict(self, system_image_path, data_image_path, vendor_img_path,
                       encryptionkey_img_path, advanced_features_ini,
@@ -983,8 +975,8 @@ class EmulatedDevice(object):
                 build_prop_path=None,
                 data_files=None):
     """Performs pre-start configuration of the emulator."""
-    assert os.path.exists(system_image_dir), ('Sysdir doesnt exist: %s' %
-                                              system_image_dir)
+    assert os.path.exists(
+        system_image_dir), f'Sysdir doesnt exist: {system_image_dir}'
     system_image_path = (system_image_path or
                          self._GetImagePath(system_image_dir, 'system.img'))
     data_image_path = (data_image_path or
@@ -1007,7 +999,7 @@ class EmulatedDevice(object):
         vm_heap=int(vm_heap),
         net_delay=NET_TYPE_TO_DELAY[net_type],
         net_speed=NET_TYPE_TO_SPEED[net_type],
-        sdcard_size_mb=int(256),
+        sdcard_size_mb=256,
         api_name=source_properties[API_LEVEL_KEY],
         emulator_architecture=self._DetermineArchitecture(source_properties),
         with_kvm=self._WithKvm(source_properties, kvm_present),
@@ -1017,7 +1009,7 @@ class EmulatedDevice(object):
         supported_open_gl_drivers=self._DetermineSupportedDrivers(
             source_properties),
         sensitive_system_image=self._DetermineSensitiveImage(source_properties),
-        system_image_path=json.dumps(images_dict)
+        system_image_path=json.dumps(images_dict),
     )
 
     if self._metadata_pb.with_kvm:
@@ -1092,19 +1084,16 @@ class EmulatedDevice(object):
     if not [kv for kv in self._metadata_pb.boot_property
             if kv.name == HEAP_GROWTH_LIMIT_KEY]:
       vm_heap = self._metadata_pb.vm_heap
-      self._metadata_pb.boot_property.add(
-          name=HEAP_GROWTH_LIMIT_KEY,
-          value='%sm' % min(64, vm_heap)
-      )
+      self._metadata_pb.boot_property.add(name=HEAP_GROWTH_LIMIT_KEY,
+                                          value=f'{min(64, vm_heap)}m')
 
     # We set this value in AVD's also, however in certain cases (for example:
     # gingerbread) it is not set early enough to have an impact. By writing
     # it into the boot_property file we ensure it'll be there as soon as the
     # system starts.
 
-    self._metadata_pb.boot_property.add(
-        name='dalvik.vm.heapsize',
-        value='%sm' % self._metadata_pb.vm_heap)
+    self._metadata_pb.boot_property.add(name='dalvik.vm.heapsize',
+                                        value=f'{self._metadata_pb.vm_heap}m')
 
     # disable dex pre-verification. Verification is still done, but at runtime
     # instead of installation time.
@@ -1128,9 +1117,8 @@ class EmulatedDevice(object):
         name='persist.sys.timezone',
         value='America/Los_Angeles')
 
-    default_cores = self._GetProperty(_CORES_PROP, default_properties,
-                                      source_properties, None)
-    if default_cores:
+    if default_cores := self._GetProperty(_CORES_PROP, default_properties,
+                                          source_properties, None):
       self._metadata_pb.avd_config_property.add(
           name=_CORES_PROP, value=default_cores)
 
@@ -1155,7 +1143,7 @@ class EmulatedDevice(object):
     elif front_cam_config == 'emulated' and back_cam_config != 'emulated':
       self._metadata_pb.boot_property.add(name='qemu.sf.fake_camera',
                                           value='front')
-    elif front_cam_config == 'emulated' and back_cam_config == 'emulated':
+    elif front_cam_config == 'emulated':
       self._metadata_pb.boot_property.add(name='qemu.sf.fake_camera',
                                           value='both')
     else:
@@ -1208,11 +1196,10 @@ class EmulatedDevice(object):
 
   def _SanityCheckOpenGLDriver(self, open_gl_driver,
                                allow_experimental_open_gl):
-    assert open_gl_driver in OPEN_GL_DRIVERS, (
-        '%s: unknown driver.' % open_gl_driver)
+    assert open_gl_driver in OPEN_GL_DRIVERS, f'{open_gl_driver}: unknown driver.'
     driver_good = open_gl_driver in self._metadata_pb.supported_open_gl_drivers
-    assert allow_experimental_open_gl or driver_good, (
-        '%s: not in supported.' % open_gl_driver)
+    assert (allow_experimental_open_gl
+            or driver_good), f'{open_gl_driver}: not in supported.'
     if allow_experimental_open_gl and not driver_good:
       logging.info('%s: is not supported - but trying anyway.', open_gl_driver)
 
@@ -1261,7 +1248,7 @@ class EmulatedDevice(object):
     timer.stop(_STAGE_DATA)
 
     timer.start(_START_PROCESS)
-    loading_from_snapshot = True if snapshot_file else False
+    loading_from_snapshot = bool(snapshot_file)
     self._StartEmulator(timer, net_type, new_process_group, window_scale,
                         with_audio, with_boot_anim,
                         loading_from_snapshot=loading_from_snapshot)

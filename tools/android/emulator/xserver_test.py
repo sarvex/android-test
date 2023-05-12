@@ -112,7 +112,7 @@ class X11ServerTest(googletest.TestCase):
 
   def _GetXRes(self, x11env):
     env = dict(os.environ)
-    env.update(x11env)
+    env |= x11env
     return subprocess.check_output(
         [
             os.path.join(resources.GetRunfilesDir(),

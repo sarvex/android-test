@@ -37,16 +37,13 @@ flags.DEFINE_string('subprocess_log_dir',
 def _GetLogCommand(logfile, is_stderr=False):
   """Return suitable command line to write log to logfile."""
   if logfile.startswith('/cns/') or logfile.startswith('/namespace/'):
-    # CNS doesn't like concurrent writers. We just skip logging stderr here
-    # since the current use case doesn't need stderr content on CNS.
     if is_stderr:
       return ['/usr/bin/tee', '-a', '/dev/null']
-    else:
-      subprocess.check_call(['fileutil', '-version'])
-      # The default buffer for fileutil is 1M. We set it to 1k here.
-      # That means there could be lagging with 1k of log.
-      return ['fileutil', '--fileutil_internal_buffer_size', '1',
-              'tee', '-a', logfile]
+    subprocess.check_call(['fileutil', '-version'])
+    # The default buffer for fileutil is 1M. We set it to 1k here.
+    # That means there could be lagging with 1k of log.
+    return ['fileutil', '--fileutil_internal_buffer_size', '1',
+            'tee', '-a', logfile]
   return ['/usr/bin/tee', '-a', logfile]
 
 
@@ -81,15 +78,14 @@ def CommandLogFile(args, exec_dir, extra_env):
   if command_name.rfind('/') > -1:
     command_name = command_name[command_name.rindex('/') + 1:]
 
-  logfile_name = '%s/%s-%s.txt' % (subprocess_log_dir, command_name,
-                                   CommandLogFile.count)
-  logfile = open(logfile_name, 'w')
-  logfile.writelines(['Executing: %s\n' % ' '.join(args),
-                      'Execdir: %s\n' % exec_dir,
-                      'Environment: %s\n' % extra_env,
-                      'STDOUT/STDERR Below\n',
-                      '===================\n'])
-  logfile.close()
+  logfile_name = (
+      f'{subprocess_log_dir}/{command_name}-{CommandLogFile.count}.txt')
+  with open(logfile_name, 'w') as logfile:
+    logfile.writelines(['Executing: %s\n' % ' '.join(args),
+                        'Execdir: %s\n' % exec_dir,
+                        'Environment: %s\n' % extra_env,
+                        'STDOUT/STDERR Below\n',
+                        '===================\n'])
   return logfile_name
 
 CommandLogFile.count = 0
@@ -270,10 +266,7 @@ def WaitProcess(context, task, on_error=None, on_success=None):
   """
   successes, failures = WaitProcesses([(context, task)], on_error=on_error,
                                       on_success=on_success)
-  if failures:
-    return (None, failures[0])
-  else:
-    return (successes[0], None)
+  return (None, failures[0]) if failures else (successes[0], None)
 
 
 def WaitProcesses(context_and_tasks, on_error=None, on_success=None):
@@ -345,7 +338,7 @@ def DefaultOnError(context, task):
   """
   extra_details = ''
   if hasattr(task, 'logfile_handle'):
-    extra_details += 'logfile: ' + task.logfile_handle.name
+    extra_details += f'logfile: {task.logfile_handle.name}'
   output = []
 
   if task.logged_stdout:
@@ -361,8 +354,9 @@ def DefaultOnError(context, task):
   if output:
     logging.error('Task failed: output: %s', '\n'.join(output))
 
-  raise SpawnError('Task failed. Context: %s, retcode: %s %s'
-                   % (context, task.wait(), extra_details))
+  raise SpawnError(
+      f'Task failed. Context: {context}, retcode: {task.wait()} {extra_details}'
+  )
 
 
 def DefaultOnSuccess(unused_context, unused_task):

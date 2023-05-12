@@ -15,11 +15,12 @@
 """Local implementation of resources.
 
 """
+
 import os
 import sys
 
 
-_GOOGLE_STR = os.sep + 'android_test_support' + os.sep
+_GOOGLE_STR = f'{os.sep}android_test_support{os.sep}'
 
 
 def GetRunfilesDir():
@@ -81,10 +82,12 @@ def FindRunfilesDir(program_filename):
     rel_filename = program_filename[google_idx + len(_GOOGLE_STR):]
     bindir, rel_filename = _GetBinaryDirectoryFilename(rel_filename)
     rel_filename_noext = os.path.splitext(rel_filename)[0]
-    runfiles = os.path.join(root_dir, 'android_test_support', bindir,
-                            rel_filename_noext + '.runfiles')
-    if os.path.isdir(runfiles):
-      return runfiles
-    return root_dir
+    runfiles = os.path.join(
+        root_dir,
+        'android_test_support',
+        bindir,
+        f'{rel_filename_noext}.runfiles',
+    )
+    return runfiles if os.path.isdir(runfiles) else root_dir
   else:
     return None
