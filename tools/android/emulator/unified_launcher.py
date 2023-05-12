@@ -408,10 +408,9 @@ def _StopDeviceAndOutputState(device, output_dir):
   device.StoreAndCompressUserdata(os.path.join(output_dir,
                                                _USERDATA_IMAGES_NAME),
                                   ram_bin)
-  proto_file = open(os.path.join(output_dir, _METADATA_FILE_NAME), 'wb')
-  proto_file.write(proto.SerializeToString())
-  proto_file.flush()
-  proto_file.close()
+  with open(os.path.join(output_dir, _METADATA_FILE_NAME), 'wb') as proto_file:
+    proto_file.write(proto.SerializeToString())
+    proto_file.flush()
 
 
 def _RestartDevice(device,
@@ -530,7 +529,7 @@ def _TryInstallApks(device, apks, grant_runtime_permissions):
                         grant_runtime_permissions=grant_runtime_permissions)
     except Exception as error:
       if FLAGS.ignore_apk_installation_failures:
-        logging.warning('Failed installing apk -' + apk + '- Continuing ...')
+        logging.warning(f'Failed installing apk -{apk}- Continuing ...')
         continue
       device.KillEmulator()
       raise error
@@ -734,8 +733,9 @@ def _Ping(adb_server_port, emulator_port, adb_port):
       adb_server_port=adb_server_port,
       emulator_telnet_port=emulator_port,
       emulator_adb_port=adb_port,
-      device_serial='localhost:%s' % adb_port,
-      android_platform=_MakeAndroidPlatform())
+      device_serial=f'localhost:{adb_port}',
+      android_platform=_MakeAndroidPlatform(),
+  )
   device._pipe_traversal_running = True  # pylint: disable=protected-access
   assert device.Ping() or device.Ping() or device.Ping()
 
@@ -785,11 +785,7 @@ def _ExtractSuffixFile(overloaded_flag, suffix):
 
 
 def _ExtractDataFiles(files):
-  output = []
-  for f in files:
-    if 'data/' in f:
-      output.append(f)
-  return output
+  return [f for f in files if 'data/' in f]
 
 
 def _ExtractPrefixFile(overloaded_flag, prefix):
@@ -802,15 +798,13 @@ def _ExtractPrefixFile(overloaded_flag, prefix):
 
 def _RemoveBootTimeApks(boot_apks=None, other_apks=None):
   """Removes any apks which were installed at boot time from a list of apks."""
-  boot_apks = _HashFiles(boot_apks)
-  if boot_apks:
-    other_apks = _HashFiles(other_apks)
-    for file_hash, _ in boot_apks.iteritems():
-      if file_hash in other_apks:
-        del other_apks[file_hash]
-    return other_apks.values()
-  else:
+  if not (boot_apks := _HashFiles(boot_apks)):
     return other_apks
+  other_apks = _HashFiles(other_apks)
+  for file_hash, _ in boot_apks.iteritems():
+    if file_hash in other_apks:
+      del other_apks[file_hash]
+  return other_apks.values()
 
 
 def _HashFiles(files):
@@ -903,7 +897,7 @@ def EntryPoint(reporter):
       int(src_props[emulated_device.API_LEVEL_KEY]) > 19 and
       src_props[emulated_device.SYSTEM_ABI_KEY].startswith('arm'))
 
-  if 'boot' == FLAGS.action:
+  if FLAGS.action == 'boot':
     _FirstBootAtBuildTimeOnly(
         filtered_system_images,
         FLAGS.skin,
@@ -933,14 +927,14 @@ def EntryPoint(reporter):
          FLAGS.allow_experimental_open_gl, FLAGS.add_insecure_cacert,
          FLAGS.grant_runtime_permissions, FLAGS.accounts, reporter,
          mini_boot, FLAGS.sim_access_rules_file, FLAGS.phone_number)
-  elif 'kill' == FLAGS.action:
+  elif FLAGS.action == 'kill':
     _Kill(FLAGS.adb_server_port, FLAGS.emulator_port, FLAGS.adb_port)
-  elif 'ping' == FLAGS.action:
+  elif FLAGS.action == 'ping':
     _Ping(FLAGS.adb_server_port, FLAGS.emulator_port, FLAGS.adb_port)
-  elif 'info' == FLAGS.action:
+  elif FLAGS.action == 'info':
     _PrintInfo(FLAGS.emulator_metadata_path, FLAGS.output_format)
   else:
-    raise Exception('Unhandled action: %s' % FLAGS.action)
+    raise Exception(f'Unhandled action: {FLAGS.action}')
 
 
 def _PrintInfo(metadata_path, output_format, out=None):
@@ -960,13 +954,12 @@ def _PrintInfo(metadata_path, output_format, out=None):
 def _ConvertToDict(key_vals):
   if not key_vals:
     return {}
-  else:
-    result = {}
-    for key_val in key_vals:
-      assert '=' in key_val, 'Not in key val format: %s' % key_val
-      key, val = key_val.split('=', 1)
-      result[key] = val
-    return result
+  result = {}
+  for key_val in key_vals:
+    assert '=' in key_val, f'Not in key val format: {key_val}'
+    key, val = key_val.split('=', 1)
+    result[key] = val
+  return result
 
 
 def _MakeAndroidPlatform():
@@ -982,7 +975,7 @@ def _MakeAndroidPlatform():
 
   if FLAGS.emulator_extra_lib_dir:
     for lib_dir in FLAGS.emulator_extra_lib_dir:
-      assert os.path.exists(lib_dir), '%s: does not exist' % lib_dir
+      assert os.path.exists(lib_dir), f'{lib_dir}: does not exist'
     platform.prepended_library_path = ':'.join(
         FLAGS.emulator_extra_lib_dir)
 
@@ -1011,17 +1004,14 @@ def _MakeAndroidPlatform():
 
   adb_path = None
   if FLAGS.use_h2o or FLAGS.use_waterfall:
-    if FLAGS.adb_bin or FLAGS.waterfall_bin:
-      adb_path = FLAGS.adb_bin or FLAGS.waterfall_bin
-    else:
-      adb_path = (''
-                  'tools/android/emulator/support/waterfall/waterfall_bin')
+    adb_path = (FLAGS.adb_bin or FLAGS.waterfall_bin
+                if FLAGS.adb_bin or FLAGS.waterfall_bin else ''
+                'tools/android/emulator/support/waterfall/waterfall_bin')
+  elif FLAGS.adb_turbo:
+    adb_path = FLAGS.adb_turbo
   else:
-    if FLAGS.adb_turbo:
-      adb_path = FLAGS.adb_turbo
-    else:
-      adb_path = (''
-                  'tools/android/emulator/support/adb.turbo')
+    adb_path = (''
+                'tools/android/emulator/support/adb.turbo')
 
   g3_relative = os.path.join('android_test_support', adb_path)
   if os.path.exists(adb_path):

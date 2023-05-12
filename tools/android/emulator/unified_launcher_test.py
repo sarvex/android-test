@@ -52,10 +52,9 @@ class UnifiedLauncherTest(mox.MoxTestBase):
     self._test_proto.sdcard_size_mb = 256
 
   def _WriteTestProto(self):
-    test_file = open(os.path.join(self._tempdir,
-                                  unified_launcher._METADATA_FILE_NAME), 'wb')
-    test_file.write(self._test_proto.SerializeToString())
-    test_file.close()
+    with open(os.path.join(self._tempdir,
+                                  unified_launcher._METADATA_FILE_NAME), 'wb') as test_file:
+      test_file.write(self._test_proto.SerializeToString())
 
   def testRestartDevice_noProto(self):
     self.mox.ReplayAll()
@@ -85,12 +84,11 @@ class UnifiedLauncherTest(mox.MoxTestBase):
     self.assertTrue(os.path.exists(os.path.join(
         output_dir, unified_launcher._METADATA_FILE_NAME)))
 
-    written_file = open(os.path.join(output_dir,
+    with open(os.path.join(output_dir,
                                      unified_launcher._METADATA_FILE_NAME),
-                        'rb')
-    written_proto = emulator_meta_data_pb2.EmulatorMetaDataPb()
-    written_proto.ParseFromString(written_file.read())
-    written_file.close()
+                        'rb') as written_file:
+      written_proto = emulator_meta_data_pb2.EmulatorMetaDataPb()
+      written_proto.ParseFromString(written_file.read())
     self.assertEquals(written_proto, self._test_proto)
 
   def testRun_badInstall(self):
@@ -398,7 +396,8 @@ class UnifiedLauncherTest(mox.MoxTestBase):
         adb_server_port=adb_server_port,
         emulator_telnet_port=emulator_port,
         emulator_adb_port=adb_port,
-        device_serial='localhost:%s' % adb_port)
+        device_serial=f'localhost:{adb_port}',
+    )
     self.mox.StubOutWithMock(mock_device, 'Ping')
     mock_device.Ping().AndReturn(True)
 
@@ -417,7 +416,8 @@ class UnifiedLauncherTest(mox.MoxTestBase):
         adb_server_port=adb_server_port,
         emulator_telnet_port=emulator_port,
         emulator_adb_port=adb_port,
-        device_serial='localhost:%s' % adb_port)
+        device_serial=f'localhost:{adb_port}',
+    )
     self.mox.StubOutWithMock(mock_device, 'Ping')
     mock_device.Ping().AndReturn(False)
 
@@ -485,17 +485,23 @@ class UnifiedLauncherTest(mox.MoxTestBase):
         '/android/system-images/google_21/x86/cache.img.tar.gz',
         '/android/system-images/google_21/x86/ramdisk.img']
     self.assertEquals(
-        set(['/android_test_support/third_party/java/android_apps/gcore/GmsCore.apk',
-             '/android_test_support/com/google/android/apps/common/testing/testapp/'
-             'testapp.apk']),
-        set(unified_launcher._ExtractBootTimeApks(overloaded)))
+        {
+            '/android_test_support/third_party/java/android_apps/gcore/GmsCore.apk',
+            '/android_test_support/com/google/android/apps/common/testing/testapp/'
+            'testapp.apk',
+        },
+        set(unified_launcher._ExtractBootTimeApks(overloaded)),
+    )
     self.assertEquals(
-        set(['/android/system-images/google_21/x86/kernel-qemu',
-             '/android/system-images/google_21/x86/userdata.img.tar.gz',
-             '/android/system-images/google_21/x86/system.img.tar.gz',
-             '/android/system-images/google_21/x86/cache.img.tar.gz',
-             '/android/system-images/google_21/x86/ramdisk.img']),
-        set(unified_launcher._ExtractSystemImages(overloaded)))
+        {
+            '/android/system-images/google_21/x86/kernel-qemu',
+            '/android/system-images/google_21/x86/userdata.img.tar.gz',
+            '/android/system-images/google_21/x86/system.img.tar.gz',
+            '/android/system-images/google_21/x86/cache.img.tar.gz',
+            '/android/system-images/google_21/x86/ramdisk.img',
+        },
+        set(unified_launcher._ExtractSystemImages(overloaded)),
+    )
 
   def testBoot_display(self):
     self.mox.StubOutClassWithMocks(emulated_device, 'EmulatedDevice')

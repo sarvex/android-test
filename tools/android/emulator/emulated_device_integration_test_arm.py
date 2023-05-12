@@ -31,10 +31,8 @@ SYSTEM_IMG_DIR = 'third_party/java/android/system_images/android_19/armeabi'
 class EmulatedDeviceIntegrationTest(googletest.TestCase):
 
   def testStartEmulator_arm_source_properties(self):
-    attempts = 0
     last_err = None
-    while attempts < 4:
-      attempts += 1
+    for _ in range(4):
       try:
         device = emulated_device.EmulatedDevice(
             android_platform=fake_android_platform_util.BuildAndroidPlatform())
